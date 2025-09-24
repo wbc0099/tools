@@ -188,9 +188,14 @@ if __name__ == "__main__":
     data=readFile("./conf_200.dat")
     x=data[:,0]
     y=data[:,1]
-    plotParticles(x,y,60,60,"./figure.jpg")
+    x1=x[:456]
+    y1=y[:456]
+    x2=x[456:]
+    y2=y[456:]
+    plotParticles(x1,y1,60,60,"./figure.jpg",x1=x2,y1=y2)
     print(distancePBC(1,9,1,9,10,10))
     DBSCANPeriodic(data,60,60,3,20)
     phi(data[0:456],60,60,1.2,"./phi6.png")
     print(readParameter("conf-data/test.dat",["python","rust"]))
     makeVideo("./conf-data","conf_",".dat",60,60,plotStep=10,particleTypeMode=456)
+
