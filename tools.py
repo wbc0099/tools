@@ -182,6 +182,21 @@ def makeVideo(dataPath,startStr,endStr,
         shutil.rmtree(picturePath)
     else:
         print(f"Pictures saved in {picturePath}")
+
+def readAllDatas(path,includeString,startstr,endstr,readStep=1):
+    item_names=os.listdir(path)
+    item_names=[files for files in item_names if files.endswith(endstr) and files.startswith(startstr)]
+    item_names=sorted(item_names, key=lambda x: int(x.split('_')[1].split('.')[0]))
+    print("item_names", item_names)
+    data_=[]
+    i=0
+    for item in item_names:
+        if i%readStep==0:
+            data=readFile(os.path.join(path,item),printSize=0)
+            data_.append(data)
+        i+=1
+    data_=np.array(data_)
+    print(data_.shape)
             
 
 if __name__ == "__main__":
@@ -198,4 +213,5 @@ if __name__ == "__main__":
     phi(data[0:456],60,60,1.2,"./phi6.png")
     print(readParameter("conf-data/test.dat",["python","rust"]))
     makeVideo("./conf-data","conf_",".dat",60,60,plotStep=10,particleTypeMode=456)
+    readAllDatas("conf-data","conf","conf",".dat")
 
