@@ -53,7 +53,8 @@ def distancePBC(x1,x2,y1,y2,lx,ly):
     return dr
 
 def DBSCANPeriodic(data,lxBox,lyBox,eps,minSamples,
-                    picturePath="./periodic_dbscan.png"):
+                    picturePath="./periodic_dbscan.png",
+                    ifPlot=True, exportData=True):
     print("data size:",data.shape)
     N=len(data)
     distanceMartix=np.zeros((N,N))
@@ -63,17 +64,21 @@ def DBSCANPeriodic(data,lxBox,lyBox,eps,minSamples,
                               data[i][1],data[j][1],lxBox,lyBox)
             distanceMartix[i,j]=delta
             distanceMartix[j,i]=delta
-    print(distanceMartix.shape)
+    if exportData:
+        print(distanceMartix.shape)
     labels=DBSCAN(eps=eps,min_samples=minSamples,
                   metric='precomputed').fit_predict(distanceMartix)
-    plotParticles(data[:,0], data[:,1], lxBox, lyBox,
-                  picturePath, propertyColor=labels,
-                  colorbarLabel="Cluster Labels", cmap='viridis')
-    print("聚类结果统计:", np.unique(labels, return_counts=True))
+    if ifPlot:
+        plotParticles(data[:,0], data[:,1], lxBox, lyBox,
+                    picturePath, propertyColor=labels,
+                    colorbarLabel="Cluster Labels", cmap='viridis')
+    if exportData:
+        print("聚类结果统计:", np.unique(labels, return_counts=True))
     # 结果分析
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    print(f"Found {n_clusters} clusters")
-    print(f"Noise points: {np.sum(labels == -1)}")
+    if exportData:
+        print(f"Found {n_clusters} clusters")
+        print(f"Noise points: {np.sum(labels == -1)}")
     
     # 计算各团簇大小并找出最大团簇
     cluster_sizes = {}
@@ -84,10 +89,14 @@ def DBSCANPeriodic(data,lxBox,lyBox,eps,minSamples,
     if cluster_sizes:  # 如果有找到团簇
         max_cluster_label = max(cluster_sizes, key=cluster_sizes.get)
         max_cluster_size = cluster_sizes[max_cluster_label]
-        print(f"Largest cluster size: {max_cluster_size} particles")
-        print(f"Largest cluster label: {max_cluster_label}")
+        if exportData:
+            print(f"Largest cluster size: {max_cluster_size} particles")
+            print(f"Largest cluster label: {max_cluster_label}")
     else:
-        print("No clusters found (only noise points)")
+        if exportData:
+            print("No clusters found (only noise points)")
+
+    return np.unique(labels, return_counts=True)
 
 def phi(data,lxBox,lyBox,threshold=1.2,filePath="./phi6.png",order=6,
        drawPciture=True,returnSumPhi=False):
@@ -197,7 +206,65 @@ def readAllDatas(path,includeString,startstr,endstr,readStep=1):
         i+=1
     data_=np.array(data_)
     print(data_.shape)
-            
+
+# def RDF(path, data, lx, ly):
+#     r_=[]
+#     for i in range(len(data)):
+#         for j in range(len(data)):
+#             if i != j:
+#                 r=distancePBC(data[i][0],data[j][0],data[i][1],data[j][1],lx,ly)
+#                 r_.append(r)
+#     r_=np.array(r_)
+#     hist,bins=np.histogram(r_,bins=200)        
+#     shellArea=np.pi*(bins[1:]**2-bins[:-1]**2)
+#     RDF=hist*lx*ly/shellArea/len(data)
+#     # print(RDF)
+#     r_center = (bins[1:] + bins[:-1]) / 2
+#     plt.plot(r_center, RDF)
+#     plt.xlabel('r')
+#     plt.ylabel('g(r)')
+#     if path:
+#         plt.savefig(path+"RDF.png")
+#     # plt.show()
+
+def RDF(path, data, lx, ly, r_cut=None):
+    r_=[]
+    for i in range(len(data)):
+        for j in range(len(data)):
+            if i != j:
+                r=distancePBC(data[i][0],data[j][0],data[i][1],data[j][1],lx,ly)
+                if r_cut is None or r < r_cut:
+                    r_.append(r)
+    r_=np.array(r_)
+    if r_cut is None:
+        r_cut = np.max(r_)
+    hist,bins=np.histogram(r_,bins=200, range=(0, r_cut))        
+    shellArea=np.pi*(bins[1:]**2-bins[:-1]**2)
+    RDF=hist*lx*ly/shellArea/len(data)
+    
+    r_center = (bins[1:] + bins[:-1]) / 2
+    plt.plot(r_center, RDF, "-k")
+    plt.xlabel('r')
+    plt.ylabel('g(r)')
+    if path:
+        plt.savefig(path+"RDF.png")
+    plt.show()
+
+def CrystallizeSpeed(path,lx,ly,startStr,endStr,measureStep,eps,minSamples):
+    itemNames=os.listdir(path)
+    itemNames=[file for file in itemNames if file.endswith(endStr) and file.startswith(startStr)]
+    itemNames=sorted(itemNames, key=lambda x: int(x[len(startStr):-len(endStr)]))
+    print(itemNames)
+    i=0
+    itemNum=len(itemNames)
+    for item in itemNames:
+        if i%measureStep==0:
+            data=readFile(os.path.join(path,item),printSize=0)
+            DBResult=DBSCANPeriodic(data,lx,ly,eps,minSamples,ifPlot=False,exportData=False)
+            weightedSum=np.sum(DBResult[1][1:]**2/len(data))+DBResult[1][0]/len(data)
+            print(DBResult[1][0])
+            print("weighted sum of cluster size", weightedSum)
+
 
 if __name__ == "__main__":
     data=readFile("./conf_200.dat")
@@ -214,4 +281,6 @@ if __name__ == "__main__":
     print(readParameter("conf-data/test.dat",["python","rust"]))
     makeVideo("./conf-data","conf_",".dat",60,60,plotStep=10,particleTypeMode=456)
     readAllDatas("conf-data","conf","conf",".dat")
+    RDF("./",data,60,60,15)
+    CrystallizeSpeed("conf-data",60,60,"conf_",".dat",1,3,20)
 
